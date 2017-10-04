@@ -11,10 +11,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 #Download file
 ```{r import}
+soccer <- read.csv("/Users/yjkweon24/Desktop/Cal/2017 Fall/PB HLTH 245/Project/Possible data sets/soccer/FullData.csv", header = T)
 
-
-download.file("https://bcourses.berkeley.edu/courses/1463885/files/folder/labs/lab01/bodyfat.csv", destfile = "aaaa")
-
+head(soccer)
 ```
 
 $\\$
