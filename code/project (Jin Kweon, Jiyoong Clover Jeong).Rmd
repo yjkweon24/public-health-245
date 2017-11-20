@@ -14,6 +14,10 @@ library(base)
 library(car)
 library(GGally)
 library(ggplot2)
+library(factoextra)
+library(stats)
+library(FactoMineR)
+library(base)
 ```
 
 
@@ -317,18 +321,34 @@ crPlot(plot1, variable = "Age")
 plot(soccer_positioncleaned$Rating, soccer_positioncleaned$Age)
 ```
 
-$\\$
+
+
+
+
+
+
+
+
 
 $\\$
 
 $\\$
+
+$\\$
+
+
+
+
+
+
+
+
 
 # Linear Regression
 
 ## (b)
 
 ```{r}
-
 soccer$Height <- as.character(soccer$Height)
 soccer$Height <- as.numeric(substr(soccer$Height, 1,3))
 
@@ -344,7 +364,6 @@ formula <- as.formula(formula)
 lmfit <- lm(formula,  data = soccer)
 
 summary(lmfit)
-
 ```
 
 
@@ -352,8 +371,6 @@ summary(lmfit)
 ## (a)
 
 ```{r}
-
-
 plot(soccer[,10], soccer[,19])
 
 plot(soccer[,10], soccer[,20])
@@ -363,10 +380,6 @@ plot(soccer[,10], soccer[,26], xlab = names(soccer)[10] , ylab = names(soccer)[2
 plot(soccer[,10], soccer[,27], xlab = names(soccer)[10] , ylab = names(soccer)[27])
 
 plot(soccer[,10], soccer[,30], xlab = names(soccer)[10] , ylab = names(soccer)[30])
-
-
-
-
 ```
 
 
@@ -374,7 +387,6 @@ plot(soccer[,10], soccer[,30], xlab = names(soccer)[10] , ylab = names(soccer)[3
 ## (c)
 
 ```{r}
-
 plot(x = lmfit$fitted.values, y = lmfit$residuals, xlab = "fitted_values", ylab = "residuals")
 
 ```
@@ -384,7 +396,6 @@ plot(x = lmfit$fitted.values, y = lmfit$residuals, xlab = "fitted_values", ylab 
 ## (d)
 
 ```{r}
-
 cooks <- data.frame(x = as.numeric(names(cooks.distance(lmfit))), cooks_distance = cooks.distance(lmfit))
 
 
@@ -394,23 +405,23 @@ ggplot(cooks, aes(x = x, y= cooks_distance, colour="red"))+ geom_point()+ geom_t
 
 
 plot(lmfit, which = 4)
-
 ```
 
 
-
-(e)
+## (e)
 
 ```{r}
-remove1 <- which(cooks[,2] %in% sort(cooks[,2], decreasing = T)[1:3])
+remove1 <- cooks[order(cooks[,2], decreasing = T)[1:3], 1]
 remove1
+
+
 
 influ <- data.frame(x = as.numeric(names(influence(lmfit)$hat)), influence = influence(lmfit)$hat)
 influ
 
 ggplot(influ, aes(x = x, y= influence, colour="red"))+ geom_point()+ geom_text(aes(label=x),hjust=0, vjust=0)
 
-remove2 <- which(influ[,2] %in% sort(influ[,2], decreasing = T)[1:2])
+remove2 <- influ[order(influ[,2], decreasing = T)[1:2], 1]
 remove2
 
 
@@ -418,24 +429,132 @@ X_refit <- soccer[-unique(c(remove1, remove2)), ]
 
 refit <- lm(formula,  data = X_refit)
 summary(refit)
-
-
-
-
-
 ```
 
-$\\$
+
+## lasso
+
+```{r}
+lasso <- glmnet(as.matrix(soccer[-384,-c(1:8,13,14,16,17)]),
+                as.matrix(soccer[-384,10]), alpha = 1)
+
+lassocv <- cv.glmnet(as.matrix(soccer[-384,-c(1:8,13,14,16,17)]), as.matrix(soccer[-384,10]), alpha = 1)
+
+summary(lasso)
+
+
+plot(lasso, label = T)
+
+plot(lassocv)
+
+plot(lasso, xvar = "lambda", label = T)
+
+
+plot(lasso, xvar = "dev", label = T)
+
+
+coef <- coef(lassocv, s = "lambda.min")
+cat("The coefficient that we get from lasso regression is :\n")
+
+
+print(as.numeric(coef))
+```
+
+
+## Compare model 
+
+
+```{r}
+q = dim(soccer)[2] - length(c(1:8,13,14,16,17)) - 8  # number of constraints
+n = nrow(soccer)
+p = dim(soccer)[2] - length(c(1:8,13,14,16,17)) # number of predictors
+
+
+
+RSS_M <- sum((soccer$Rating - lmfit$fitted.values)^2)
+
+fit1 <- lm(Rating ~ Skill_Moves + Ball_Control + Reactions + Attacking_Position + Composure + Short_Pass + Heading + GK_Handling, data = soccer)
+
+summary(fit1)
+
+plot(fit1)
+
+
+RSS_m <- sum((soccer$Rating - fit1$fitted.values)^2)
+Fstat <- ( (RSS_m - RSS_M) / q ) / (RSS_M / (n-p-1))
+cat("F statistics is ", Fstat, "\n")
+
+
+pval <- pf(Fstat, q, n-p-1, lower.tail = F)
+cat("P value is ", pval, "\n")
+```
+
+
+
+
+## lm by club poistion
+
+```{r}
+soccer_positioncleaned$Height <- as.character(soccer_positioncleaned$Height)
+soccer_positioncleaned$Height <- as.numeric(substr(soccer_positioncleaned$Height, 1,3))
+
+soccer_positioncleaned$Weight <- as.character(soccer_positioncleaned$Weight)
+soccer_positioncleaned$Weight <- as.numeric(substr(soccer_positioncleaned$Weight, 1,2))
+
+
+mid <- soccer_positioncleaned[soccer_positioncleaned$Club_Position == "Midfielder", ]
+
+goal <- soccer_positioncleaned[soccer_positioncleaned$Club_Position == "Goalkeeper", ]
+
+attack <- soccer_positioncleaned[soccer_positioncleaned$Club_Position == "Attacker", ]
+
+defense <- soccer_positioncleaned[soccer_positioncleaned$Club_Position == "Defense", ]
+
+
+
+midfit <- lm(Rating~ . ,  data = mid[,-c(1:8,13,14,16,17)])
+goalfit <- lm(Rating~ . ,  data = goal[,-c(1:8,13,14,16,17)])
+attackfit <- lm(Rating~ . ,  data = attack[,-c(1:8,13,14,16,17)])
+defensefit <- lm(Rating~ . ,  data = defense[,-c(1:8,13,14,16,17)])
+
+
+
+summary(midfit)
+summary(goalfit)
+summary(attackfit)
+summary(defensefit)
+```
+
+
+
+
+
+
+
+
+
 
 $\\$
 
 $\\$
+
+$\\$
+
+
+
+
+
+
+
+
 
 #PCA
 ```{r}
 pcsoccer <- soccer[,-c(1,2,3,4,5,6,7,8,9,11,12,13,14,16,17)]
 
 scalepc <- scale(pcsoccer, T, T)
+row.names(pcsoccer) <- make.names(soccer[,1], unique = T)
+rownames(scalepc) <- make.names(soccer[,1], unique = T)
 corpc <- cor(scalepc)
 
 loadingpc <- eigen(corpc)$vectors
@@ -475,14 +594,213 @@ labs(title = "Screeplot of eigenvalues", x = "number of components", y = "values
 scale_x_continuous(breaks=seq(1,12,1))
 graph
 
+ggplot(as.data.frame(pcsoccer[,1:2]), aes(x = PC1, y = PC2)) + geom_point() +
+  geom_text(aes(label = rownames(pcsoccer), hjust = -0.4), size = 3)
 
-
+plot(PCA(pcsoccer))
 
 ```
 
+#PCA2 with small sample
+
+```{r}
+pcsoccer2 <- soccer_positioncleaned[,-c(1,2,3,4,5,6,7,8,9,11,12,13,14,16,17)]
+
+scalepc2 <- scale(pcsoccer2, T, T)
+rownames(pcsoccer2) <- make.names(soccer_positioncleaned[,1], unique = T)
+rownames(scalepc2) <- make.names(soccer_positioncleaned[,1], unique = T)
+corpc2 <- cor(scalepc2)
+
+loadingpc2 <- eigen(corpc2)$vectors
+rownames(loadingpc2) <- colnames(scalepc2)
+loadingpc2
+
+eigenpc2 <- eigen(corpc2)$values
+eigenpc2
+sum(eigenpc2)
+
+pcsoccer2 <- scalepc2 %*% loadingpc2
+colnames(pcsoccer2) <- paste0("PC", 1:38)
+head(pcsoccer2[,1:2])
+
+eigen_data2 <- matrix(0, nrow = round(sum(eigenpc2),0), ncol = 3)
+colnames(eigen_data2) <- c("eigenvalue", "percentage", "cumulative.percentage")
+rownames(eigen_data2) <- paste0("comp", 1:sum(eigenpc2))
+eigen_data2[,1] <- eigenpc2
+percentage2 <- apply(as.matrix(eigenpc2), 2, sum(eigenpc2), FUN = "/") * 100
+eigen_data2[,2] <- percentage2
+cum_fun <- function(x){ #x should be n * 1 column matrix
+  for (i in 2:nrow(x)){
+    x[i,] <- x[i-1,] + x[i,]
+  }
+  return(x)
+}
+cumulative2 <- cum_fun(percentage) #or use cumsum!!!
+eigen_data2[,3] <- cumulative2
+print(eigen_data2)
 
 
+graph <- ggplot(as.data.frame(eigen_data2[,1]), aes(x = 1:38, y = as.numeric(eigen_data2[,1])))
+graph <- graph + geom_bar(stat = "identity", alpha = 0.3, color = "red") + geom_point() + 
+  geom_line() +
+  labs(title = "Screeplot of eigenvalues", x = "number of components", y = "values") +
+  scale_x_continuous(breaks=seq(1,12,1))
+graph
 
+#When I knit the files, since there are two many datas, conversion error comes up.... but when I run the file here, it works...
+
+# ggplot(as.data.frame(pcsoccer2[,1:2]), aes(x = PC1, y = PC2)) + geom_point() +
+#   geom_text(aes(label = rownames(pcsoccer2), hjust = -0.4), size = 3)
+# 
+# ggplot(as.data.frame(cbind(PC1 = pcsoccer2[,1], PC3 = pcsoccer2[,3])), aes(x = PC1, y = PC3)) +
+#   geom_point() + geom_text(aes(label = rownames(pcsoccer2), hjust = -0.4), size = 3)
+# 
+# ggplot(as.data.frame(cbind(PC2 = pcsoccer2[,2], PC3 = pcsoccer2[,3])), aes(x = PC2, y = PC3)) +
+#   geom_point() + geom_text(aes(label = rownames(pcsoccer2), hjust = -0.4), size = 3)
+
+#plot(PCA(pcsoccer))
+```
+
+#PCA ranking
+```{r}
+pcsoccerrank <- data.frame(PC1 = pcsoccer2[,1])
+pcsoccerrank$Rank <- rank(pcsoccerrank$PC1)
+order <- pcsoccerrank[order(pcsoccerrank$Rank), ]
+order$name <- rownames(order)
+order$name <- factor(order$name, levels = order$name[order(order$PC1)])
+#order
+head(order, 20)
+tail(order, 20)
+
+# ggplot(order, aes(x = name, y = PC1)) + geom_bar(stat = "identity") +
+#   theme(text = element_text(size=4), axis.text.x = element_text(angle = 40, hjust = 1)) +
+#   ggtitle("PC1")
+
+
+################################################
+
+pcsoccerrank2 <- data.frame(PC2 = pcsoccer2[,2])
+pcsoccerrank2$Rank <- rank(pcsoccerrank2$PC2)
+order <- pcsoccerrank2[order(pcsoccerrank2$Rank), ]
+order$name <- rownames(order)
+order$name <- factor(order$name, levels = order$name[order(order$PC2)])
+#order
+head(order, 20)
+tail(order, 20)
+
+# ggplot(order, aes(x = name, y = PC2)) + geom_bar(stat = "identity") +
+#   theme(text = element_text(size=4), axis.text.x = element_text(angle = 40, hjust = 1)) +
+#   ggtitle("PC2")
+
+
+################################################
+
+pcsoccerrank3 <- data.frame(PC3 = pcsoccer2[,3])
+pcsoccerrank3$Rank <- rank(pcsoccerrank3$PC3)
+order <- pcsoccerrank3[order(pcsoccerrank3$Rank), ]
+order$name <- rownames(order)
+order$name <- factor(order$name, levels = order$name[order(order$PC3)])
+#order
+head(order, 20)
+tail(order, 20)
+
+# ggplot(order, aes(x = name, y = PC3)) + geom_bar(stat = "identity") +
+#   theme(text = element_text(size=4), axis.text.x = element_text(angle = 40, hjust = 1)) +
+#   ggtitle("PC3")
+
+
+################################################
+
+pcsoccerrank4 <- data.frame(PC4 = pcsoccer2[,4])
+pcsoccerrank4$Rank <- rank(pcsoccerrank4$PC4)
+order <- pcsoccerrank4[order(pcsoccerrank4$Rank), ]
+order$name <- rownames(order)
+order$name <- factor(order$name, levels = order$name[order(order$PC4)])
+#order
+head(order, 20)
+tail(order, 20)
+
+# ggplot(order, aes(x = name, y = PC4)) + geom_bar(stat = "identity") +
+#   theme(text = element_text(size=4), axis.text.x = element_text(angle = 40, hjust = 1)) +
+#   ggtitle("PC4")
+
+
+################################################
+
+pcsoccerrank5 <- data.frame(PC5 = pcsoccer2[,5])
+pcsoccerrank5$Rank <- rank(pcsoccerrank5$PC5)
+order <- pcsoccerrank5[order(pcsoccerrank5$Rank), ]
+order$name <- rownames(order)
+order$name <- factor(order$name, levels = order$name[order(order$PC5)])
+#order
+head(order, 20)
+tail(order, 20)
+
+# ggplot(order, aes(x = name, y = PC5)) + geom_bar(stat = "identity") +
+#   theme(text = element_text(size=4), axis.text.x = element_text(angle = 40, hjust = 1)) +
+#   ggtitle("PC5")
+```
+
+
+#PCA correlation circle
+```{r}
+pcsoccer2 <- soccer_positioncleaned[,-c(1,2,3,4,5,6,7,8,9,11,12,13,14,16,17)]
+newpc <- prcomp(pcsoccer2, scale = T)
+var <- get_pca_var(newpc)
+
+correlation <- function(loadings, sdev){
+  return(loadings * sdev)
+  }
+
+loadings <- newpc$rotation
+sdev <- newpc$sdev
+
+var.cor <- t(apply(loadings, 1, correlation, sdev))
+
+################################################
+
+# Plot the correlation circle
+a <- seq(0, 2*pi, length = 100)
+plot(2*cos(a), 2*sin(a), type = 'l', col="gray",
+      xlab = "PC1",  ylab = "PC2")
+
+abline(h = 0, v = 0, lty = 2)
+
+# Add active variables
+arrows(0, 0, var.cor[, 1], var.cor[, 2], 
+      length = 0.1, angle = 15, code = 2)
+text(var.cor[,c(1,2)], labels=rownames(var.cor), cex = 0.4, adj=0.6, pos = 3)
+
+
+################################################
+
+# Plot the correlation circle
+a <- seq(0, 2*pi, length = 100)
+plot(2*cos(a), 2*sin(a), type = 'l', col="gray",
+      xlab = "PC1",  ylab = "PC3")
+
+abline(h = 0, v = 0, lty = 2)
+
+# Add active variables
+arrows(0, 0, var.cor[, 1], var.cor[, 3], 
+      length = 0.1, angle = 15, code = 2)
+text(var.cor[,c(1,3)], labels=rownames(var.cor), cex = 0.4, adj=0.5, pos = 2)
+
+
+################################################
+
+# Plot the correlation circle
+a <- seq(0, 2*pi, length = 100)
+plot(2*cos(a), 2*sin(a), type = 'l', col="gray",
+      xlab = "PC2",  ylab = "PC3")
+
+abline(h = 0, v = 0, lty = 2)
+
+# Add active variables
+arrows(0, 0, var.cor[, 2], var.cor[, 3], 
+      length = 0.05, angle = 15, code = 2)
+text(var.cor[,c(2,3)], labels=rownames(var.cor), cex = 0.4, adj=1, pos = 3)
+```
 
 
 
