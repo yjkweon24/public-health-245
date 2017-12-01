@@ -22,7 +22,7 @@ library(base)
 
 
 
-#Download data
+# Download data
 
 Data: https-//www.kaggle.com/artimous/complete-fifa-2017-player-dataset-global
 
@@ -44,7 +44,7 @@ $\\$
 
 $\\$
 
-#Dictionary 
+# Dictionary 
 
 For more information, please refer to "https://www.fifaindex.com/."
 ```{r}
@@ -163,7 +163,7 @@ $\\$
 
 $\\$
 
-#Inspect data1
+# Inspect data1
 ```{r}
 NAidx <- c(0)
 Blidx <- c(0)
@@ -194,7 +194,7 @@ for(i in 1:ncol(soccer)){
 ```
 
 
-#Inspect data2
+# Inspect data2
 ```{r}
 #Show the categories of the position
 levels(soccer$Club_Position)
@@ -286,7 +286,7 @@ $\\$
 
 $\\$
 
-#Multivariate tests
+# Multivariate tests
 
 ####Test:
 My null hypotheses $H_0$ are: ($\mu$ and $\beta$ are means for each group. For example, $\mu_{11}$ will be the mean of both first level of both factors)
@@ -548,7 +548,7 @@ $\\$
 
 
 
-#PCA
+# PCA
 ```{r}
 pcsoccer <- soccer[,-c(1,2,3,4,5,6,7,8,9,11,12,13,14,16,17)]
 
@@ -601,7 +601,7 @@ plot(PCA(pcsoccer))
 
 ```
 
-#PCA2 with small sample
+# PCA2 with small sample
 
 ```{r}
 pcsoccer2 <- soccer_positioncleaned[,-c(1,2,3,4,5,6,7,8,9,11,12,13,14,16,17)]
@@ -661,7 +661,7 @@ graph
 #plot(PCA(pcsoccer))
 ```
 
-#PCA ranking
+# PCA ranking
 ```{r}
 pcsoccerrank <- data.frame(PC1 = pcsoccer2[,1])
 pcsoccerrank$Rank <- rank(pcsoccerrank$PC1)
