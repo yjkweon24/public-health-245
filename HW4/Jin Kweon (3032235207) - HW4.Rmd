@@ -1,0 +1,872 @@
+---
+title: "Jin Kweon - HW 4 (3032235207)"
+author: "Jin Kweon"
+date: "11/9/2017"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(GGally)
+library(factoextra)
+library(stats)
+library(FactoMineR)
+```
+
+#Problem 1
+
+$\\$
+
+##Data import
+
+```{r}
+women <- read.delim("Data-HW4-track-women.dat", header = F, sep = "", na.strings = "")
+
+men <- read.delim("Data-HW4-track-men.dat", header = F, sep = "", na.strings = "")
+
+dim(men)
+dim(women)
+
+colnames(women) <- c("Country", "100m", "200m", "400m", "800m", "1500m", "3000m", "Marathon")
+colnames(men) <- c("Country", "100m", "200m", "400m", "800m", "1500m", "5000m", "10000m", "Marathon")
+```
+
+$\\$
+
+$\\$
+
+##Part a - Women
+
+####Obtain the sample correlation matrix for the women track records data, and determine its eigenvalues and eigenvectors.
+```{r}
+ggpairs(women[,-1])
+cor(women[,-1])
+
+scalewomen <- scale(women[,-1], T, T)
+Rwomen <- cor(scalewomen)
+
+loadingwomen <- eigen(Rwomen)$vectors
+rownames(loadingwomen) <- colnames(scalewomen)
+loadingwomen
+
+eigenwomen <- eigen(Rwomen)$values
+eigenwomen
+
+sum(eigenwomen)
+```
+
+**Comment:**
+
+The correlation matrix before and after the standardization should be the same!!! 
+
+The eigevenctors here are called "loadings." (it tells me the direction) It should be the same whatever ways I get upto the **sign difference.** 
+
+Eigenvalues are useful in determining proportion of variation. (it tells me the signicance of the direction)
+
+The sum of eigenvalues are equal to the numberof columns. (it is 7 since the first column is just name of the countries)
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+##Part b - Women
+
+####Determine the first two principal components for the standardized predictors. Find out the cumulative percentage of the total sample variance explained by the two components.
+```{r}
+#loadings...
+loadingwomen[,1:2]
+
+pcwomen <- scalewomen %*% loadingwomen
+colnames(pcwomen) <- paste0("PC", 1:7)
+rownames(pcwomen) <- women[,1]
+
+head(pcwomen[,1:2])
+
+#Check with prcomp
+#head(prcomp(women[,-1], scale = T)$x[,1:2])
+
+eigenwomen[1:2]
+
+#Check with procomp
+#as.vector((prcomp(women[,-1], scale = T)$sdev)^2)[1:2]
+
+#Table of variance explained
+eigen_data <- matrix(0, nrow = round(sum(eigenwomen),0), ncol = 3)
+colnames(eigen_data) <- c("eigenvalue", "percentage", "cumulative.percentage")
+rownames(eigen_data) <- paste0("comp", 1:sum(eigenwomen))
+
+eigen_data[,1] <- eigenwomen
+percentage <- apply(as.matrix(eigenwomen), 2, sum(eigenwomen), FUN = "/") * 100
+eigen_data[,2] <- percentage
+
+cum_fun <- function(x){ #x should be n * 1 column matrix
+  for (i in 2:nrow(x)){
+    x[i,] <- x[i-1,] + x[i,]
+  }
+  return(x)
+}
+cumulative <- cum_fun(percentage) #or use cumsum!!!
+eigen_data[,3] <- cumulative
+
+print(eigen_data)
+
+graph <- ggplot(as.data.frame(eigen_data[,1]), aes(x = 1:7, y = as.numeric(eigen_data[,1])))
+graph <- graph + geom_bar(stat = "identity", alpha = 0.3, color = "red") + geom_point() +
+  geom_line() +
+  labs(title = "Screeplot of eigenvalues", x = "number of components", y = "values") +
+  scale_x_continuous(breaks=seq(1,12,1))
+graph
+```
+
+**Comment:**
+
+Again Z should be the same no matter which way I used, upto the sign difference. Please check my output above for my first two PCs.
+
+Again, we need to use the formula $\frac{\lambda_i}{\lambda_1 +\ ...\ + \lambda_p}$ is the proportion of variance captured by i-th principal components, when i = 1, ... , p. 
+
+The cumulative percentage of the total sample variance explained by the two components is around 91.95 %. 
+
+I also made a scree-plot, which is one of the ways to choose how many PCs I should use. (Personally, I am not a fan of scree-plot, since it is too subjective. I prefer predetermined amount of variation, Kaiser's rule, or Jolife's rule.)
+
+I think I will only need two dimensions of PCs for this data.
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+##Part c - Women
+
+####Interpret the two principal components (and loadings).
+
+```{r}
+women$sprinting <- apply(women[,2:4], 1, mean)
+women$long <- apply(women[,5:8], 1, mean)
+
+womensprint <- data.frame(sprinting = women[,9])
+womenlong <- data.frame(long = women[,10])
+
+womensprint$Rank <- rank(womensprint$sprinting)
+rownames(womensprint) <- women[,1]
+womenlong$Rank <- rank(womenlong$long)
+rownames(womenlong) <- women[,1]
+
+womensprintorder <- womensprint[order(womensprint$Rank), ]
+womensprintorder$name <- rownames(womensprintorder)
+womensprintorder$name <- factor(womensprintorder$name,
+                                levels = womensprintorder$name[order(womensprintorder$sprinting)])
+
+
+womenlongorder <- womenlong[order(womenlong$Rank), ]
+womenlongorder$name <- rownames(womenlongorder)
+womenlongorder$name <- factor(womenlongorder$name,
+                              levels = womenlongorder$name[order(womenlongorder$long)])
+
+
+ggplot(womensprintorder, aes(x = name, y = sprinting)) + geom_bar(stat = "identity") +
+  theme(text = element_text(size=8),axis.text.x = element_text(angle = 40, hjust = 1)) +
+  ggtitle("sprinting")
+
+ggplot(womenlongorder, aes(x = name, y = long)) + geom_bar(stat = "identity") +
+  theme(text = element_text(size=8), axis.text.x = element_text(angle = 40, hjust = 1)) +
+  ggtitle("long")
+
+
+womenpca <- prcomp(women[,-1], scale = T)
+# fviz_pca_ind(womenpca,
+#              col.ind = "cos2", # Color by the quality of representation
+#              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+#              repel = TRUE     # Avoid text overlapping
+#              )
+ggplot(as.data.frame(pcwomen[,1:2]), aes(x = PC1, y = PC2)) + geom_point() +
+  geom_text(aes(label = rownames(pcwomen), hjust = -0.4), size = 3)
+
+plot(PCA(women[,-1]))
+```
+
+**Comment:**
+
+Please also refer to the graph I made for part d).
+
+First of all, I think by looking at the scree-plot, I feel like I only need two PCs to explain the data well enough (looking for elbow).
+
+Second, when I see the graphs, most of the countries are left-skwed... And, as USA, FRA, and GER (the countries who have good amounts of athletes) are placed in the right-side, I can tell that the countries who have done pretty well in runnings are placed in the right-side of PC1. Only three countries: SAM, COK, PNG are on the left-hand side.
+
+I think the first component indicates how good each coungry is in the short distance (sprinting) like for example in 100m, 200m, and 400m. (I ranked the long distances and short distances.) It is quite clear as USA, GER, FRA, and RUS aer all placed in the top tiers; however, for example, KEN is not really having big number in PC1 as they are doing well in the long distances but no in the short distances. (However, in overall, **PC1 shows atheletic excellence.**) 
+
+The second component is not clear to be interpreted, and this makes sense as this component does not take small variance, as we saw in the previous question (eigenvalue). However, one thing I found that might be possible interpretation for PC2 shows how big the **difference is betwene short and long distances running (so how countries are good at long run compared to short run)**... For example, KEN and KOR.N show the good amounts of gaps between short and long runnings, but USA and RUS did not... However, this is not a perfect interpretation...
+
+PC1: **shows atheletic excellence.**
+
+PC2: **difference is betwene short and long distances running (so how countries are good at long run compared to short run)**
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+##Part d - Women
+
+####Rank the nations based on their score on the first principal component. Does this ranking correspond with your intuitive notion of athletic excellence for the various countries?
+```{r}
+pcwomenrank <- data.frame(PC1 = pcwomen[,1])
+pcwomenrank$Rank <- rank(pcwomenrank$PC1)
+order <- pcwomenrank[order(pcwomenrank$Rank), ]
+order$name <- rownames(order)
+order$name <- factor(order$name, levels = order$name[order(order$PC1)])
+order
+
+ggplot(order, aes(x = name, y = PC1)) + geom_bar(stat = "identity") +
+  theme(text = element_text(size=8), axis.text.x = element_text(angle = 40, hjust = 1)) +
+  ggtitle("PC")
+```
+
+**Comment:**
+
+As I commented in the previous question, I think this ranking shows the notion of athletic excellence in the **sprinting.** Most of the countires who have high PC here have good records in short distance runnings. For example, although KEN is one of the countries who have shown the excellence in marathon does not perform high in PC1. (However, as I also mentioned in the previous question, PC1 shows atheletic excellence for the various countries pretty well) USA, GER, RUS, CHN, GRB, and FRA are on the top rankings.  
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+##Part e - Women
+
+####Convert the national track records for women to speeds measured in meters per second. Perform a principal components analysis using the covariance matrix of the speed data. Compare the results with the results in (b). Do your interpretations of the components differ? If the nations are ranked on the basis of their score on the first principal component, does the subsequent ranking differ from that in (d)? Which analysis do you prefer? Why?
+
+```{r}
+women1 <- 100 / women[,2]
+women2 <- 200 / women[,3]
+women3 <- 400 / women[,4]
+women4 <- 800 / (women[,5] * 60)
+women5 <- 1500 / (women[,6] * 60)
+women6 <- 3000 / (women[,7] * 60)
+women7 <- 42195 / (women[,8] * 60)
+womene <- data.frame(`100m` = women1, `200m` = women2, `400m` = women3, `800m` = women4,
+                     `1500m` = women5, `3000m` = women6, marathon = women7)
+
+
+#A
+cov(womene)
+covwomen <- cov(scale(womene, T, F)) #should be the same!!!
+
+loadingwomene <- eigen(covwomen)$vectors
+rownames(loadingwomene) <- colnames(womene)
+-1 * loadingwomene # I multipled by -1 just to make the first column to be positive...
+
+eigenwomene <- eigen(covwomen)$values
+eigenwomene
+
+
+
+
+#B
+-1 * loadingwomene[,1:2]
+
+pcwomene <- scale(womene, T, F) %*% loadingwomene
+colnames(pcwomene) <- paste0("PC", 1:7)
+rownames(pcwomene) <- women[,1]
+
+head(pcwomene[,1:2])
+
+#Check with prcomp
+#head(prcomp(womene, center = T)$x[,1:2])
+
+eigenwomene[1:2]
+
+#Check with procomp
+#as.vector((prcomp(womene, center = T)$sdev)^2)[1:2]
+
+#Table of variance explained
+eigen_data <- matrix(0, nrow = 7, ncol = 3)
+colnames(eigen_data) <- c("eigenvalue", "percentage", "cumulative.percentage")
+rownames(eigen_data) <- paste0("comp", 1:7)
+
+eigen_data[,1] <- eigenwomene
+percentage <- apply(as.matrix(eigenwomene), 2, sum(eigenwomene), FUN = "/") * 100
+eigen_data[,2] <- percentage
+
+cum_fun <- function(x){ #x should be n * 1 column matrix
+  for (i in 2:nrow(x)){
+    x[i,] <- x[i-1,] + x[i,]
+  }
+  return(x)
+}
+cumulative <- cum_fun(percentage) #or use cumsum!!!
+eigen_data[,3] <- cumulative
+
+print(eigen_data)
+
+
+graph <- ggplot(as.data.frame(eigen_data[,1]), aes(x = 1:7, y = as.numeric(eigen_data[,1])))
+graph <- graph + geom_bar(stat = "identity", alpha = 0.3, color = "red") + geom_point() +
+  geom_line() +
+  labs(title = "Screeplot of eigenvalues", x = "number of components", y = "values") +
+  scale_x_continuous(breaks=seq(1,12,1))
+graph
+
+
+
+
+
+#C
+womenpcae <- prcomp(womene, center = T)
+# fviz_pca_ind(womenpcae,
+#              col.ind = "cos2", # Color by the quality of representation
+#              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+#              repel = TRUE     # Avoid text overlapping
+#              )
+ggplot(as.data.frame(-1 *pcwomene[,1:2]), aes(x = PC1, y = PC2)) + geom_point() +
+  geom_text(aes(label = rownames(pcwomene), hjust = -0.4), size = 3)
+
+
+plot(PCA(womene))
+
+
+
+
+
+#D
+pcwomenranke <- data.frame(PC1 = -1 * pcwomene[,1])
+pcwomenranke$Rank <- rank(pcwomenranke$PC1)
+order <- pcwomenranke[order(pcwomenranke$Rank), ]
+order$name <- rownames(order)
+order$name <- factor(order$name, levels = order$name[order(order$PC1)])
+order
+
+ggplot(order, aes(x = name, y = PC1)) + geom_bar(stat = "identity") +
+  theme(text = element_text(size=8), axis.text.x = element_text(angle = 40, hjust = 1)) +
+  ggtitle("PC")
+
+```
+
+**Comment:**
+
+**As professor recomended, I will use mean-centered (not standardized) for covariance matrix, and standardized matrix for correlation matrix.**
+
+First of all, I want to mention I adjusted the sign, for interpretation and visual purpose. In PCA, interpretation and visual are both really important, so I was extra careful about them...
+
+Definitely, as I used the covaraince matrix, the eigenvalues are different;however, the cumulative percentages are almost the same/similar. And, the two principal components are different for sure.
+
+As you can easily see from my bar plots, the nations' ranks based on the scores on the first principal component, the bar plot looks almost the same! Thus, the rankings are not significantly different.
+
+Furthermore, the interpretation of the components are also the same. It can be easily found on the PC1 v.s. PC2 plots. 
+
+**I personally do not have any preference.** The difference is basically the "unit" and "correlation matrix or covariance matrix." However, both of them can be used in different ways, and both are useful. For example, I personally prefer to use correlation matrix most of the times when I want to know the total sample variance explained by the component, as the sum of all eigen-values are added upto the number of variables. And, also this might be easier to interpret it, since correlation is always between 0 and 1. However, e) is also changing "unit," so I can do better analysis when I try to compare speeds between speed of each distance.
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+##Part f
+
+$\\$
+
+###Part a - Men
+```{r}
+ggpairs(men[,-1])
+cor(men[,-1])
+
+scalemen <- scale(men[,-1], T, T)
+Rmen <- cor(scalemen)
+
+loadingmen <- eigen(Rmen)$vectors
+rownames(loadingmen) <- colnames(scalemen)
+loadingmen
+
+eigenmen <- eigen(Rmen)$values
+eigenmen
+
+sum(eigenmen)
+```
+
+**Comment:**
+
+The correlation matrix before and after the standardization should be the same!!! 
+
+The eigevenctors here are called "loadings." (it tells me the direction) It should be the same whatever ways I get upto the **sign difference.** 
+
+Eigenvalues are useful in determining proportion of variation. (it tells me the signicance of the direction)
+
+The sum of eigenvalues are equal to the numberof columns. (it is 7 since the first column is just name of the countries)
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+###Part b - Men
+```{r}
+loadingmen[,1:2]
+
+pcmen <- scalemen %*% loadingmen
+colnames(pcmen) <- paste0("PC", 1:8)
+rownames(pcmen) <- men[,1]
+
+head(pcmen[,1:2])
+
+#Check with prcomp
+#head(prcomp(men[,-1], scale = T)$x[,1:2])
+
+
+
+
+
+eigenmen[1:2]
+
+#Check with procomp
+#as.vector((prcomp(men[,-1], scale = T)$sdev)^2)[1:2]
+
+
+
+
+
+#Table of variance explained
+eigen_data <- matrix(0, nrow = round(sum(eigenmen),0), ncol = 3)
+colnames(eigen_data) <- c("eigenvalue", "percentage", "cumulative.percentage")
+rownames(eigen_data) <- paste0("comp", 1:sum(eigenmen))
+
+eigen_data[,1] <- eigenmen
+percentage <- apply(as.matrix(eigenmen), 2, sum(eigenmen), FUN = "/") * 100
+eigen_data[,2] <- percentage
+
+cum_fun <- function(x){ #x should be n * 1 column matrix
+  for (i in 2:nrow(x)){
+    x[i,] <- x[i-1,] + x[i,]
+  }
+  return(x)
+}
+cumulative <- cum_fun(percentage) #or use cumsum!!!
+eigen_data[,3] <- cumulative
+
+print(eigen_data)
+
+graph <- ggplot(as.data.frame(eigen_data[,1]), aes(x = 1:8, y = as.numeric(eigen_data[,1])))
+graph <- graph + geom_bar(stat = "identity", alpha = 0.3, color = "red") + geom_point() +
+  geom_line() +
+  labs(title = "Screeplot of eigenvalues", x = "number of components", y = "values") +
+  scale_x_continuous(breaks=seq(1,12,1))
+graph
+
+```
+
+**Comment:**
+
+Again Z should be the same no matter which way I used, upto the sign difference. Please check my output above for my first two PCs.
+
+Again, we need to use the formula $\frac{\lambda_i}{\lambda_1 +\ ...\ + \lambda_p}$ is the proportion of variance captured by i-th principal components, when i = 1, ... , p. 
+
+The cumulative percentage of the total sample variance explained by the two components is around 91.77 %. (similar to women's...)
+
+I also made a scree-plot, which is one of the ways to choose how many PCs I should use. (Personally, I am not a fan of scree-plot, since it is too subjective. I prefer predetermined amount of variation, Kaiser's rule, or Jolife's rule.)
+
+I think I will only need two dimensions of PCs for this data.
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+###Part c - Men
+```{r}
+men$sprinting <- apply(men[,2:4], 1, mean)
+men$long <- apply(men[,5:9], 1, mean)
+
+mensprint <- data.frame(sprinting = men[,10])
+menlong <- data.frame(long = men[,11])
+
+mensprint$Rank <- rank(mensprint$sprinting)
+rownames(mensprint) <- men[,1]
+menlong$Rank <- rank(menlong$long)
+rownames(menlong) <- men[,1]
+
+mensprintorder <- mensprint[order(mensprint$Rank), ]
+mensprintorder$name <- rownames(mensprintorder)
+mensprintorder$name <- factor(mensprintorder$name,
+                              levels = mensprintorder$name[order(mensprintorder$sprinting)])
+
+
+menlongorder <- menlong[order(menlong$Rank), ]
+menlongorder$name <- rownames(menlongorder)
+menlongorder$name <- factor(menlongorder$name,
+                            levels = menlongorder$name[order(menlongorder$long)])
+
+
+ggplot(mensprintorder, aes(x = name, y = sprinting)) + geom_bar(stat = "identity") +
+  theme(text = element_text(size=8), axis.text.x = element_text(angle = 40, hjust = 1)) +
+  ggtitle("sprinting")
+
+ggplot(menlongorder, aes(x = name, y = long)) + geom_bar(stat = "identity") +
+  theme(text = element_text(size=8), axis.text.x = element_text(angle = 40, hjust = 1)) +
+  ggtitle("long")
+
+
+menpca <- prcomp(men[,-1], scale = T)
+# fviz_pca_ind(menpca,
+#              col.ind = "cos2", # Color by the quality of representation
+#              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+#              repel = TRUE     # Avoid text overlapping
+#              )
+ggplot(as.data.frame(pcmen[,1:2]), aes(x = PC1, y = PC2)) + geom_point() +
+  geom_text(aes(label = rownames(pcmen), hjust = -0.4), size = 3)
+
+plot(PCA(men[,-1]))
+```
+
+**Comment:**
+
+Please also refer to the graph I made for part d).
+
+**As you can see from my plots, the interpretation of men's and women's are really similar, and this makes sense when you refer to the extra bar plots I made. They show the similar countries' rankings as women's.**
+
+First of all, I think by looking at the scree-plot, I feel like I only need two PCs to explain the data well enough (looking for elbow).
+
+Second, when I see the graphs, most of the countries are left-skwed... And, as USA, UK, Canada, and Austrailia (the countries who have good amounts of athletes) are placed in the right-side, I can tell that the countries who have done pretty well in runnings are placed in the right-side of PC1. Only three countries: SAM, COK, Singapore are on the left-hand side.
+
+I think the first component indicates how good each coungry is in the short distance (sprinting) like for example in 100m, 200m, and 400m. (I ranked the long distances and short distances.) It is quite clear as USA, UK, Canada, and Austrailia all placed in the top tiers; however, for example, KEN is not really having big number in PC1 as they are doing well in the long distances but not that well in the short distances. However, KEN does pretty well here in short distance for men, so they actually place on the right hand side in PC1 (However, in overall, PC1 shows atheletic excellence.) 
+
+The second component is not clear to be interpreted, and this makes sense as this component does not take small variance, as we saw in the previous question (eigenvalue). However, one thing I found that might be possible interpretation for PC2 shows how big the difference is betwene short and long distances running... For example, KEN and KOR.N show the good amounts of gaps between short and long runnings, but USA and UK did not... However, this is not a perfect interpretation...
+
+PC1: **shows atheletic excellence.**
+
+PC2: **difference is betwene short and long distances running (so how countries are good at long run compared to short run)**
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+###Part d - Men
+```{r}
+pcmenrank <- data.frame(PC1 = pcmen[,1])
+pcmenrank$Rank <- rank(pcmenrank$PC1)
+order <- pcmenrank[order(pcmenrank$Rank), ]
+order$name <- rownames(order)
+order$name <- factor(order$name, levels = order$name[order(order$PC1)])
+order
+
+ggplot(order, aes(x = name, y = PC1)) + geom_bar(stat = "identity") +
+  theme(text = element_text(size=8), axis.text.x = element_text(angle = 40, hjust = 1)) +
+  ggtitle("PC")
+```
+
+**Comment:**
+
+As I commented in the previous question, I think this ranking shows the notion of athletic excellence in the **overall sprinting and long running. (little bit different with Women's) - but still I think PC1 takes short distance with more weights** Most of the countires who have high PC here have good records in short distance runnings. USA, UK, France, Austrailia, and Kenya are all doing well on the short distance (But most of them are also doing pretty well in long distance as well).  
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+##Are the results consistent with those obtained from the women's data?
+
+**Comment:**
+
+The results are mostly consistent with the ones obtained from the women's data!!! And, this makes sense actually. Atheletic performance usually are not that different based on geneder. 
+
+**For women's data, USA, Germany, Russia, China, and France are on the top five; however, for men's data, USA, UK, Kenya, France, and Austrailia are on the top five.**
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+###Part e - Men
+```{r}
+men1 <- 100 / men[,2]
+men2 <- 200 / men[,3]
+men3 <- 400 / men[,4]
+men4 <- 800 / (men[,5] * 60)
+men5 <- 1500 / (men[,6] * 60)
+men6 <- 5000 / (men[,7] * 60)
+men7 <- 10000 / (men[,8] * 60)
+men8 <- 42195 / (men[,9] * 60)
+mene <- data.frame(`100m` = men1, `200m` = men2, `400m` = men3, `800m` = men4,
+                     `1500m` = men5, `5000m` = men6, `10000m` = men7, marathon = men8)
+
+
+#A
+cov(mene)
+covmen <- cov(scale(mene, T, F)) #should be the same!!!
+
+loadingmene <- eigen(covmen)$vectors
+rownames(loadingmene) <- colnames(mene)
+-1 * loadingmene # I multipled by -1 just to make the first column to be positive...
+
+eigenmene <- eigen(covmen)$values
+eigenmene
+
+
+
+
+#B
+-1 * loadingmene[,1:2]
+
+pcmene <- scale(mene, T, F) %*% loadingmene
+colnames(pcmene) <- paste0("PC", 1:8)
+rownames(pcmene) <- men[,1]
+
+head(pcmene[,1:2])
+
+#Check with prcomp
+#head(prcomp(mene, center = T)$x[,1:2])
+
+eigenmene[1:2]
+
+#Check with procomp
+#as.vector((prcomp(mene, center = T)$sdev)^2)[1:2]
+
+#Table of variance explained
+eigen_data <- matrix(0, nrow = 8, ncol = 3)
+colnames(eigen_data) <- c("eigenvalue", "percentage", "cumulative.percentage")
+rownames(eigen_data) <- paste0("comp", 1:8)
+
+eigen_data[,1] <- eigenmene
+percentage <- apply(as.matrix(eigenmene), 2, sum(eigenmene), FUN = "/") * 100
+eigen_data[,2] <- percentage
+
+cum_fun <- function(x){ #x should be n * 1 column matrix
+  for (i in 2:nrow(x)){
+    x[i,] <- x[i-1,] + x[i,]
+  }
+  return(x)
+}
+cumulative <- cum_fun(percentage) #or use cumsum!!!
+eigen_data[,3] <- cumulative
+
+print(eigen_data)
+
+
+graph <- ggplot(as.data.frame(eigen_data[,1]), aes(x = 1:8, y = as.numeric(eigen_data[,1])))
+graph <- graph + geom_bar(stat = "identity", alpha = 0.3, color = "red") + geom_point() +
+  geom_line() +
+  labs(title = "Screeplot of eigenvalues", x = "number of components", y = "values") +
+  scale_x_continuous(breaks=seq(1,12,1))
+graph
+
+
+
+
+
+#C
+menpcae <- prcomp(mene, center = T)
+# fviz_pca_ind(menpcae,
+#              col.ind = "cos2", # Color by the quality of representation
+#              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+#              repel = TRUE     # Avoid text overlapping
+#              )
+ggplot(as.data.frame(-1 *pcmene[,1:2]), aes(x = PC1, y = PC2)) + geom_point() +
+  geom_text(aes(label = rownames(pcmene), hjust = -0.4), size = 3)
+
+
+
+plot(PCA(mene))
+
+
+
+
+#D
+pcmenranke <- data.frame(PC1 = -1 * pcmene[,1])
+pcmenranke$Rank <- rank(pcmenranke$PC1)
+order <- pcmenranke[order(pcmenranke$Rank), ]
+order$name <- rownames(order)
+order$name <- factor(order$name, levels = order$name[order(order$PC1)])
+order
+
+ggplot(order, aes(x = name, y = PC1)) + geom_bar(stat = "identity") +
+  theme(text = element_text(size=8), axis.text.x = element_text(angle = 40, hjust = 1)) +
+  ggtitle("PC")
+```
+
+**Comment:**
+
+**This is not required problem. I just did it for fun and learing.** 
+
+**As professor recomended, I will use mean-centered (not standardized) for covariance matrix, and standardized matrix for correlation matrix.**
+
+First of all, I want to mention I adjusted the sign, for interpretation and visual purpose. In PCA, interpretation and visual are both really important, so I was extra careful about them...
+
+Definitely, as I used the covaraince matrix, the eigenvalues are different;however, the cumulative percentages are almost the same/similar. And, the two principal components are different for sure.
+
+As you can easily see from my bar plots, the nations' ranks based on the scores on the first principal component, the bar plot looks almost the same! Thus, the rankings are not significantly different.
+
+Furthermore, the interpretation of the components are also the same. It can be easily found on the PC1 v.s. PC2 plots. 
+
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+#Problem 2
+
+Good ref: https://web.stanford.edu/class/psych253/tutorials/FactorAnalysis.html
+
+$\\$
+
+##Data import
+```{r}
+pollution <- read.delim("Data-HW4-pollution.dat", header = F, sep = "", na.strings = "")
+
+colnames(pollution) <- c("Wind", "SolarRadiation", "CO", "NO", "NO2", "O3", "HC")
+dim(pollution)
+```
+
+$\\$
+
+$\\$
+
+##Part a
+
+####Using all 7 air-pollution variables to generate the sample covariance matrix.
+```{r}
+cov(pollution)
+cov <- cov(scale(pollution, T, F)) #Should be the same!!!
+#cov
+```
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+##Part b
+
+####Obtain the principal component solution to a factor model with m = 1 and m = 2. Find the corresponding commonalities.
+
+```{r}
+options(scipen=999) #eliminate the scientific notation
+
+fit <- eigen(cov)
+v <- fit$vectors
+rownames(v) <- colnames(pollution)
+
+L1 <- v[,1] * sqrt(fit$values[1]) #eigen value is already ordered automatically in R...
+L2 <- v[,2] * sqrt(fit$values[2])
+
+#One factor model
+L1
+
+L1^2
+#diag(L1 %*% t(L1)) -> same answer as above....
+
+
+#Two factor model
+cbind(L1 = -1 * L1, L2)
+
+L1^2 + L2^2 #diagonal entries of LL^T
+#diag(cbind(L1, L2) %*% t(cbind(L1, L2))) #LL^T -> same answer as above....
+
+
+#cov - cbind(L1, L2) %*% t(cbind(L1, L2)) #psi...
+```
+
+**Comment:**
+
+Communality for m = 1 and m = 2 (the proportion of variance of variables that is contributed by m common factors) were printed above. The higher commonality is, the better the variable is explained by the factors. I can see that solar radiation is explained well by one factor model, and the wind, O3, CO, and NO2 are explained well by the second factor. 
+
+Remember that the method I am using is PC. 
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+##Part c
+
+####Find the proportion of variation accounted for by the one-factor model, and the two-factor model, respectively.
+
+In the lecture note, it says that proportion of total variation due to the i-th factor is $\frac{l^2_{1i}\ +\ ...\ +\ l^2_{pi}}{\sigma_1\ +\ ...\ +\ \sigma_p}$, where $\sigma_j$ is the diagonal element from covariance matrix.
+
+If I used the correlation matrix sum of all the simgas are just length of L.
+
+```{r}
+options(scipen=999)
+
+sum(L1^2) / sum(diag(cov)) #one factor model
+sum(L1^2 + L2^2) / sum(diag(cov)) #two factor model
+```
+
+**Comment:**
+
+The variance indicates the variability in the data explained by each factor. 
+
+Definitely as I used the model with more factors, the more proportion of variation will be accounted for. Around 0.873 is accounted by the one factor model, and around 0.954 by the two factor model.
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+##Part d
+
+####Perform a varimax rotation of the m = 2 solution, and interpret the factors after the rotation. Find the proportion of variation accounted for by the two-factor model after the rotation.
+
+```{r}
+options(scipen=999)
+
+varimax(cbind(L1, L2), normalize = F)
+```
+
+**Comment:**
+
+Factor rotation simplifies the loading structure and makes the factors be better distinguishable, which eventually helps us to interpret. When I use the varimax() function in R, they automatically get rid of the elements from the variable where the factor barely has influence on. The factor 1 has the most influence on solar radiation, so the factor 1 describes solar radiation-related issue/pollution. The factor 2 has the significant influence on O3 (and NO2 slightly). So the factor 2 describes ozone-related issue/pollution. 
+
+Proportion of variations accounted for by the two-factor model are around 43.391 and 4.113 as you can see from the output above. **(47.505% for m = 2)**
+
+We have used covariance for the factor analysis, but I personally preferred to do it with correlation matrix as the loading ranges from -1 to 1 here... 
+
+
+

@@ -1,0 +1,320 @@
+---
+title: "Jin Kweon (3032235207) HW3"
+author: "Jin Kweon"
+date: "10/23/2017"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(plyr, warn.conflicts = T)
+library(dummies, warn.conflicts = T)
+```
+
+```{r import}
+data <- read.table(file="Data-HW3-CHeartDisease.dat", header=FALSE, quote="", sep=",")
+dim(data)
+```
+
+*Professor allowed us to use the R codes he gave for hints!!!*
+
+Ref: http://archive.ics.uci.edu/ml/datasets/heart+Disease 
+
+#Remove missing values
+```{r remove}
+#remove missing values with "?" in 12th and 13th columns
+id.ms <- sort(c(seq(1, nrow(data))[data[, 12] == "?"], seq(1, nrow(data))[data[, 13] == "?"]))
+data2 <- data[-id.ms, ] 
+
+#Change the data into numeric.
+data2[, 12] <- as.numeric(data2[, 12]) - 2 #factor messed up numbers
+data2[, 13] <- as.numeric(data2[, 13]) - 1 #factor messed up numbers
+
+#Set X and Y
+design <- data.matrix(data2[, 1:13])
+response <- data2[, 14] 
+
+#The goal is to distinguish presence (values 1,2,3,4) from absence (value 0) of
+#heart disease given the 13 attributes
+response[response > 0] <- 1
+
+
+colnames(design) <- c("age", "gender", "chestpain", "bldpressure", "cholestroal", 
+                    "bloodsugar", "electrocardio", "maxheartrate", "angina", "STdepression",
+                    "STslopepeakexercise", "vessel", "thal")
+response <- as.matrix(response)
+
+colnames(response) <- "heartdisease"
+  
+dim(design)
+dim(response)
+```
+
+####*Comment:*
+
+We removed 6 "?" (missing values) on the 12th and 13th columns. Since the repsponse should be categorical, I transformed the values 1 - 4 into 1 and 0 into 0. That way, I could do logisitc regression. (one of classification) So the values on the 14th column were all dummy numbers. 
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+
+#Part a
+```{r}
+response <- as.data.frame(response)
+
+count(response, "heartdisease")
+````
+
+####*Comment:*
+
+#####Q.Among the 297 remaining patients, how many had heart disease and how many had none? 
+
+So, from the dplyr outputs, I can say that 137 people had heart disease, and 160 people had none.
+
+$\\$
+
+
+#####Q.Which predictors are numerical, which are categorical, and which are unclear?
+
+1. The first column, age, is numerical. 
+
+2. The second column, gender, is categorical. (0 and 1 do not have numerical meaning)
+
+3. The third column, chest pain type, is little bit unclear but closed to categorical (the number represents the characteristic, but also can be measured) - part c) says we are going to regard this as categofical variables. 
+
+4. The fourth column, resting blood pressure, is numerical.
+
+5. The fifth column, serum cholestoral, is numerical. 
+
+6. The sixth column, fasting blood sugar, is categorical.
+
+7. The seventh column, resting electrocardiographic result, is unclear. (0, 1, and 2) - part c) says we are going to regard this as numerical variables. (closed to categorical) - don't know whether 0, 1, and 2 measure something or random numbers.
+
+8. The eigth column, maximum heart rate achieved, is numerical.
+
+9. The ninth column, exercise induced angina, is categorical. 
+
+10. The tenth column, ST depression induced by exercise, is numerical. (has decimal points)
+
+11. The eleventh column, the slope of the peak exercise ST segment, is unclear. (1, 2, and 3) - part c) says we are going to regard this as numerical variables. (little bit closed to categorical) - don't know whether 1, 2, and 3 measure something or random numbers.
+
+12. The twelvth column, number of major vessels colored by flourosopy, is numerical. -> R: The number of vessels actually means the number. 
+
+13. The thirteenth column, thal, is categorical. - part c) says we are going to regard this as categorical variables. 
+
+14. Definitely, response (presence/absence of heart disease) is categorical, as 0/1 does not numerically mean anything. 
+
+$\\$
+
+Most of them are fairly clear. 
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+#Part b
+```{r}
+logfit <- glm(heartdisease ~., family = binomial, data = cbind(design, response))
+
+summary(logfit)
+````
+
+####*Comment:*
+
+It shows that vessel and thal are significant. 
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+#Part c
+
+Reference: https://cran.r-project.org/web/packages/dummies/dummies.pdf  
+```{r}
+#See how many groups are in 3rd and 13th columns
+levels(as.factor(design[,3]))
+levels(as.factor(design[,13]))
+
+#Change to dummy matrix for these two columns
+col3chestdummy <- dummy(design[,3])
+col13thaldummy <- dummy(design[,13])
+
+colnames(col3chestdummy) <- c("chest1", "chest2", "chest3", "chest4")
+colnames(col13thaldummy) <- c("thal1", "thal2", "thal3")
+
+head(col3chestdummy)
+head(col13thaldummy)
+
+newdesign <- cbind(design[,c(1,2)], col3chestdummy, design[,4:12], col13thaldummy)
+newdesignonecolout <- newdesign[,-c(6, 18)]
+
+#Fitting
+logfit2 <- glm(heartdisease ~., family = binomial, data = cbind(newdesign, response))
+summary(logfit2)
+
+logfit3 <- glm(heartdisease ~., family = binomial, data = cbind(newdesignonecolout, response))
+summary(logfit3)
+
+
+
+newdesignonecolout2 <- newdesign[,-c(3, 16)]
+
+logfit4 <- glm(heartdisease ~., family = binomial, data = cbind(newdesignonecolout2, response))
+summary(logfit4)
+
+newdesignonecolout3 <- newdesign[,-c(4, 16)]
+
+
+logfit5 <- glm(heartdisease ~., family = binomial, data = cbind(newdesignonecolout3, response))
+summary(logfit5)
+````
+
+####*Comment:*
+
+Since glm() function automatically creates an intercept, one of the columns from two dummy matrices will give NA (singularity errors). To fix them, I can manually, take out one column each for two dummy matrices manually. When I manually take each of them out, I can take out any one column in each dummy matrix; however, just to follow how R works, I will take out the last dummy column in each dummy variable. (Otherwise, the coefficients are different, but means the same thing though)
+
+*Edited:*
+
+Since part e) asked us to interpret the coefficient estimate in front of the predictor [3] chest pain type 4, I decide to take out the first column for each dummy variable (part d), e), and f) literally said "Based on the logistic regression fit from (c)." So, I will stick to this regression fit for the following questions) 
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+#Part d
+```{r}
+summary(logfit4)$coefficients
+
+summary(logfit4)$coefficients[8, ]
+````
+
+####*Comment:*
+
+#####Q. Interpret the coefficient estimate in front of the predictor [5] serum cholestoral.
+
+The estimated coefficient is approximately 0.004930. 
+
+1. The odds of getting heartdisease with every one unit (mg/dl) increase in serum cholestoral is around $e^{0.004930} \approx\ 1.004942$ times higher, keeping everything is fixed.
+
+2. A one unit (mg/dl) increase in serum cholestoral is associated with an increase in the log odds of getting heartdisease by around $e^{0.004930} \approx\ 1.004942$ units. 
+
+#####Q. Test the null hypothesis that this coefficient equals zero, what is the p-value of this test?
+
+The null hypothesis is $H_0: \beta_{cholestoral}\ =\ 0$, so from the t-test: $\frac{\hat{\beta_{cholestoral}}\ -\ \beta_{cholestoral}}{s.e.(\beta_{cholestoral})}\ \sim\ t_{n-p-1}$, the p-value of the test is around 0.211306192.
+
+#####Q. If the significance level is set at 0.05, what is your conclusion of this hypothesis test?
+
+Since signficance level of 0.05, I would *not* reject the null, as p-value is larger than 0.05. So, it means that coefficient of serum cholestoral should be zero. So, coefficient of serum cholestoral is not significant in the logistic regression fit. 
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+#Part e
+
+```{r}
+summary(logfit4)$coefficients
+
+summary(logfit4)$coefficients[6, ]
+
+summary(logfit5)$coefficients
+````
+
+####*Comment:*
+
+It may be helpful to write down the "sub-model" for every combination of the categorical variables. The coefficient of chest4 in each regression will be involved with some intercept in sub-models involving (x,y) pairs where chest 4, but the interpretation differs slightly. In the first it represents some mean shift form the baseline chest 1, while in the second the baseline is chest 2 instead. (Another way is to take out the intercept and keep all dummy columns)
+
+So, as I keep taking out the first column of the two logistic fits, intercept has the same effect from thal dummy variable (related to thal 1). So, the intercept from the first model is the outcome as chest 1 and thal 1, and the intercept from the second model is the outcome as chest 2 and thal 1. As you can see, the estimate coefficients from the chest 2 from the first model and chest 1 from the second model are the same (up to the sign difference), as the first one means difference between chest 2 and chest 1 (with effect of thal 1), and the second one means the difference between chest 1 and chest 2 (with effect of thal 1). So, the real coefficient for chest 4 (with effect of thal 1) is *around -3.97929121* (as 0.935648939 - 4.914940144 from the second model or 2.006801827 - 5.986093033 from the first model). However, this still cannot be said the real estimator, since there is another dummy variable, thal affecting the intercept. 
+
+Since the question specifically asked me to interpret the coefficient estimates for predictor [3] chest pain type 4, I will twick the model a little bit. Instead of taking out the last dummy column in part c), I will take out the first column for two dummy matrices. 
+
+$\\$
+
+$\\$
+
+#####Q. Interpret the coefficient estimate in front of the predictor [3] chest pain type 4. 
+
+The estimated coefficient is approximately 2.006802. (type 4 stands for asymptomatic)
+
+1. The odds of getting heartdisease with every one unit increase in **difference between chest pain type 4 and chest pain type 1** is approximately $e^{2.006802} \approx\ 7.439488$ times higher, keeping everything is fixed.
+
+2. A one unit increase in **difference between chest pain type 4 and chest pain type 1** is associated with an increase in the log odds of getting heartdisease by around $e^{2.006802} \approx\ 7.439488$ units. 
+
+#####Q. Test the null hypothesis that this coefficient equals zero, what is the p-value of this test?
+
+The null hypothesis is $H_0: \beta_{chest4}\ =\ 0$, so from the t-test: $\frac{\hat{\beta_{chest4}}\ -\ \beta_{chest4}}{s.e.(\beta_{chest4})}\ \sim\ t_{n-p-1}$, the p-value of the test is approximately 0.002104679.
+
+#####Q. If the significance level is set at 0.05, what is your conclusion of this hypothesis test?
+
+Since signficance level of 0.05, I would *reject* the null, as p-value is smaller than 0.05. So, it means that coefficient of chest pain type 4 should not be zero. So, coefficient of chest pain type 4 is significant in the logistic regression fit. 
+
+$\\$
+
+$\\$
+
+$\\$
+
+$\\$
+
+#Part f
+
+Reference: https://stats.stackexchange.com/questions/146294/what-is-misclassification-rate-how-do-we-calculate-it 
+
+```{r}
+summary(logfit4)
+
+#Classfication
+count(predict(logfit4, type = "response") > 0.5)
+
+one <- rep(1, nrow(response))
+yhat <- rep(0,nrow(response))
+yhat[fitted(logfit4) > 0.5] <- 1 #fitted outputs yhat as cutoff is 0.5
+mean(one != yhat) #not match only if yhat is classfied into 0 -> 0 is predicted to be 58.24%.
+
+#Misclassification rate
+sum(response == yhat)
+sum(response != yhat)
+
+mean(response != yhat)
+````
+
+####*Comment:*
+
+#####Q. Classify the 297 patients into the presence class or absence class, using the cutoff probability 0.5. 
+
+I found that if the cut off is 0.5, then, 124 patients are classfied into the presence class, and 173 are classfied into the absence class. (0.5824 for absence class probability when cutoff probability is 0.5)
+
+#####Q. What is the misclassification rate for this logistic regression fit?
+
+Misclasfficiation rate can be calculated as $\frac{1}{n}\sum_i{I(y_i\ -\ \hat{y_i})}$.
+So, misclassfication rate for this logistic regression fit is approximately 0.13805.
+
+$\\$
+
+$\\$
+
+
